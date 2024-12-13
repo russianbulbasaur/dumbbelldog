@@ -21,23 +21,23 @@ func parseRequestLine(requestLineBytes []byte) requestLine {
   }
 } 
 
-type header struct{
-  key string
-  val string
+type Header struct{
+  Key string
+  Val string
 }
 
-func parseHeaders(headersBytes [][]byte) []header {
-  var headers []header;
+func parseHeaders(headersBytes [][]byte) map[string]Header {
+  headers := make(map[string]Header,0)
   for _,headerBytes := range headersBytes {
     parts := bytes.Split(headerBytes,[]byte{':',' '})
-    headers = append(headers,header{key:string(parts[0]),val:string(parts[1])})
+    headers[string(parts[0])] = Header{Key:string(parts[0]),Val:string(parts[1])}
   }
   return headers;
 }
 
 type Request struct {
   RLine requestLine
-  headers []header
+  Headers map[string]Header
 }
 
 func ParseRequest(request []byte) *Request {
@@ -47,6 +47,6 @@ func ParseRequest(request []byte) *Request {
   //body := parseBody(parts[len(parts)-1])
   return &Request{
     RLine: rLine,
-    headers: headers,
+    Headers: headers,
   }
 }
