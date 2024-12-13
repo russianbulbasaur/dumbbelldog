@@ -1,4 +1,4 @@
-package dumbbelldog
+package main
 
 import (
 	"dumbbelldog/internals/client"
@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	address, err := net.ResolveTCPAddr("tcp", "127.0.0.1:4221")
+	address, err := net.ResolveTCPAddr("tcp", "127.0.0.1:8000")
 	if err != nil {
 		log.Fatalln(err)
 	}

@@ -35,7 +35,8 @@ func (client *Client) forkReader() {
 			client.cancelFunc()
 			return
 		}
-		client.handle(buffer[0:n])
+        response := client.parseRequest(buffer[0:n])
+        client.writerPipe <- response
 	}
 }
 
