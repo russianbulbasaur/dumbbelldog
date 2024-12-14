@@ -9,6 +9,8 @@ import (
     "bytes"
     "os"
     "fmt"
+    "bufio"
+    "errors"
 )
 
 func main() {
@@ -31,21 +33,26 @@ func index(req *request.Request) []byte {
 func echo(req *request.Request) []byte {
     target := req.RLine.Target
     echo := strings.TrimPrefix(target,"/echo/")
+    req.Compressor.Write([]byte(echo))
+    req.Compressor.Close()
+    res := req.CompressedBuffer.Bytes()
     headers := make(map[string]string,0)
     headers["Content-Type"] = "text/plain"
-    headers["Content-Length"] = strconv.Itoa(len(echo))
-    responseStruct := response.NewResponse(200,"OK",[]byte(echo),headers)
+    headers["Content-Encoding"] = "gzip"
+    headers["Content-Length"] = strconv.Itoa(len(res))
+    fmt.Println(res)
+    responseStruct := response.NewResponse(200,"OK",res,headers)
     return responseStruct.Marshal()
 }
 
 
 func userAgent(req *request.Request) []byte{
     output := []byte(req.Headers["User-Agent"].Val)
-    fmt.Println(string(output))
+    req.Compressor.Write(output)
     headers := make(map[string]string,0)
     headers["Content-Type"] = "text/plain"
     headers["Content-Length"] = strconv.Itoa(len(output))
-    responseStruct := response.NewResponse(200,"OK",output,headers)
+    responseStruct := response.NewResponse(200,"OK",req.CompressedBuffer.Bytes(),headers)
     return responseStruct.Marshal()
 }
 
@@ -57,6 +64,14 @@ func files(req *request.Request) []byte {
     file,err := os.Open(fileName)
     if err != nil {
       fmt.Println(err)
+      if errors.Is(err,os.ErrNotExist) && req.RLine.Method=="POST"{
+        result,err := newFile(req,fileName)
+        if err != nil {
+          fmt.Println(err)
+          return notFound(req)
+        }
+        return result
+      }
       return notFound(req)
     }
     _,err = buffer.ReadFrom(file)
@@ -67,9 +82,28 @@ func files(req *request.Request) []byte {
     headers := make(map[string]string,0)
     headers["Content-Type"] = "application/octect-stream"
     content := buffer.Bytes()
+    req.Compressor.Write(content)
     headers["Content-Length"] = strconv.Itoa(len(content))
-    responseStruct := response.NewResponse(200,"OK",content,headers)
+    responseStruct := response.NewResponse(200,"OK",req.CompressedBuffer.Bytes(),headers)
     return responseStruct.Marshal()
+}
+
+
+func newFile(req *request.Request,fileName string) ([]byte,error) {
+  fmt.Println(string(req.Body))
+  file,err := os.OpenFile(fileName,os.O_CREATE|os.O_RDWR,0444)
+  if err != nil {
+    return nil,err
+  }
+  bufWriter := bufio.NewWriter(file)
+  bufWriter.Write(req.Body)
+  bufWriter.Flush()
+  file.Close()
+  headers := make(map[string]string,0)
+  headers["Content-Type"] = "text/plain"
+  headers["Content-Length"] = "0"
+  responseStruct := response.NewResponse(201,"CREATED",[]byte{},headers)
+  return responseStruct.Marshal(),nil
 }
 
 func notFound(req *request.Request) []byte{
