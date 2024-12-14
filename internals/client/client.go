@@ -3,23 +3,28 @@ package client
 import (
 	"log"
 	"net"
+    "dumbbelldog/internals/request"
 )
 import "context"
+
+type Callback func(*request.Request)[]byte
 
 type Client struct {
 	conn          net.Conn
 	clientContext context.Context
 	cancelFunc    context.CancelFunc
 	writerPipe    chan []byte
+    serverPaths   map[string]Callback
 }
 
-func NewClient(conn net.Conn) *Client {
+func NewClient(conn net.Conn,serverPaths map[string]Callback) *Client {
 	clientContext, cancel := context.WithCancel(context.Background())
 	client := Client{
 		conn,
 		clientContext,
 		cancel,
 		make(chan []byte),
+        serverPaths,
 	}
 	go client.forkReader()
 	go client.forkWriter()
